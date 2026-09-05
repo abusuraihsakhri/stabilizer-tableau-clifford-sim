@@ -12,9 +12,9 @@ from enrichment import (
     FilesToCreatemodifyEngine,
     TestingEngine,
     TableauSimulatorWithOptimizedSymplecticRepresentationsEngine,
-    ImplementationEngine,
-    FilesToCreatemodifyEngine,
-    TestingEngine,
+    OptimizedTableauImplementationEngine,
+    OptimizedTableauFilesToCreatemodifyEngine,
+    OptimizedTableauTestingEngine,
     StabilizertableaucliffordsimEnrichmentSuite,
     enrichment_suite,
 )
@@ -33,3 +33,18 @@ def test_enrichment_threshold_escalation():
     for k, v in res.items():
         assert v.status in ["WARNING", "CRITICAL_ALERT"]
         assert len(v.alerts) > 0
+
+def test_enrichment_suite_returns_all_engines():
+    suite = StabilizertableaucliffordsimEnrichmentSuite()
+    res = suite.execute_all(primary_val=0.5, secondary_val=0.2)
+    expected_keys = {
+        "StabilizerStateGeneratorWithCustomStabilizerGroupsEngine",
+        "ImplementationEngine",
+        "FilesToCreatemodifyEngine",
+        "TestingEngine",
+        "TableauSimulatorWithOptimizedSymplecticRepresentationsEngine",
+        "OptimizedTableauImplementationEngine",
+        "OptimizedTableauFilesToCreatemodifyEngine",
+        "OptimizedTableauTestingEngine",
+    }
+    assert expected_keys.issubset(set(res.keys()))
