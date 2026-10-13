@@ -32,3 +32,6 @@ test = ["pytest>=7,<10"]
 
 [tool.setuptools.packages.find]
 include = ["agents*", "stabilizer_tableau*"]
+
+[tool.setuptools.package-data]
+stabilizer_tableau = ["web/*"]
