@@ -74,4 +74,4 @@ def api_audit_logs():
 
 
 # Register the workbench after the REST routes, preserving their priority.
-app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="workbench")
+app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "stabilizer_tableau" / "web"), html=True), name="workbench")
