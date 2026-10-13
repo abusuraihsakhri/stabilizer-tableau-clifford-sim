@@ -41,6 +41,6 @@ jobs:
         with:
           node-version: "22"
       - name: Check browser JavaScript syntax
-        run: node --check web/simulator.mjs && node --check web/app.mjs
+        run: node --check stabilizer_tableau/web/simulator.mjs && node --check stabilizer_tableau/web/app.mjs
       - name: Run browser simulation tests
         run: node --test tests/test_browser.mjs
