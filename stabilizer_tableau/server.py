@@ -4,6 +4,7 @@ FastAPI REST API Server for Aaronson-Gottesman Stabilizer Tableau Fast Clifford 
 from typing import Dict, Any
 from .models import FrontierPayload
 from .agents import StabilizerCoordinator
+from .tableau import simulate_circuit
 
 coordinator = StabilizerCoordinator()
 
@@ -11,11 +12,14 @@ coordinator = StabilizerCoordinator()
 def create_app():
     try:
         from fastapi import FastAPI
-        from pydantic import BaseModel
+        from pydantic import BaseModel, Field
+        from fastapi import HTTPException
+        from fastapi.staticfiles import StaticFiles
+        from pathlib import Path
 
         app = FastAPI(
             title="Aaronson-Gottesman Stabilizer Tableau Fast Clifford Simulator",
-            description="Simulates 10,000+ qubit Clifford circuits (H, S, CNOT) in polynomial time using binary stabilizer tableau representations.",
+            description="Simulates Clifford circuits using binary symplectic stabilizer tableau representations.",
             version="2.0.0-FRONTIER",
         )
 
@@ -30,6 +34,11 @@ def create_app():
 
         class ChatRequest(BaseModel):
             query: str
+
+        class CircuitRequest(BaseModel):
+            qubits: int = Field(ge=1, le=64)
+            circuit: str = Field(max_length=200_000)
+            seed: int = Field(default=0, ge=-(2**31), le=2**32 - 1)
 
         @app.get("/health")
         def health():
@@ -52,6 +61,14 @@ def create_app():
         def api_chat(req: ChatRequest):
             return {"response": coordinator.query_supervisory_chat(req.query)}
 
+        @app.post("/api/simulate")
+        def api_simulate(req: CircuitRequest):
+            try:
+                return simulate_circuit(req.qubits, req.circuit, req.seed)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="workbench")
         return app
     except ImportError:
         return None
