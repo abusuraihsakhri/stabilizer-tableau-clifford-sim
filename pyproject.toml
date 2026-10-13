@@ -25,3 +25,10 @@ stabilizer-tableau-clifford-sim = "stabilizer_tableau.cli:main"
 [project.urls]
 Homepage = "https://github.com/abusuraihsakhri/stabilizer-tableau-clifford-sim"
 Repository = "https://github.com/abusuraihsakhri/stabilizer-tableau-clifford-sim.git"
+
+[project.optional-dependencies]
+server = ["fastapi>=0.110,<1", "uvicorn>=0.23,<1", "pydantic>=2,<3"]
+test = ["pytest>=7,<10"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "stabilizer_tableau*"]
