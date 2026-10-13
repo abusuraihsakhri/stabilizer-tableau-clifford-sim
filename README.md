@@ -1,164 +1,74 @@
 # Stabilizer Tableau Clifford Sim
 
-> **Domain:** Quantum Computing / Stabilizer Circuit Simulation
-> **Reference:** Aaronson-Gottesman Clifford Algorithm
+Pure-Python binary symplectic stabilizer tableau simulator, with a dependency-free in-browser JavaScript workbench. Legacy telemetry/audit utilities are retained separately and do not implement quantum circuit simulation.
 
-<div align="center">
+## Features
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg?logo=python&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+- Clifford gates: H, S, SDG, X, Y, Z, CX/CNOT, CZ, and SWAP
+- Z measurement (M/MEASURE) with state collapse, seeded pseudo-random outcomes, and repeatability
+- Final signed Pauli stabilizer generators and single-qubit Z expectation values (−1, 0, +1)
+- Newline- or semicolon-separated gate syntax with zero-based qubit indices and # comments
+- Limits: Python/API 1–64 qubits, browser 1–24 qubits, at most 10,000 operations
 
-</div>
+This is **not** a universal quantum simulator: T/non-Clifford gates, general amplitudes, arbitrary initial stabilizer groups, and noise channels are not supported.
 
----
+## Browser application
 
-## 📖 What It Does
+The static, responsive workbench is in `stabilizer_tableau/web/`. It calculates locally without any external service, offers examples, error messages, reproducible results, and JSON export. Start a local server from the repository root:
 
-Stabilizer Tableau Clifford Sim is a Python implementation of the Aaronson-Gottesman stabilizer tableau algorithm for fast simulation of Clifford circuits. It provides:
+~~~bash
+python -m http.server 8000 --directory stabilizer_tableau/web
+~~~
 
-- **Stabilizer Tableau Engine**: Binary symplectic representation for efficient Clifford gate simulation
-- **Multi-Agent Coordination**: Distributed worker architecture for parallel circuit evaluation
-- **HMAC-SHA256 Audit Trail**: Cryptographically signed, tamper-evident logging for all operations
-- **PHI Outbound Guard**: Regex-based detection and blocking of sensitive identifiers in outputs
-- **FastAPI REST API**: OpenAPI-compatible endpoints for remote circuit evaluation
-- **CLI Interface**: Command-line tools for batch processing and interactive simulation
+Open http://127.0.0.1:8000/. GitHub Pages is configured through `.github/workflows/pages.yml`; the verified live link will be added only once deployment succeeds. Browser-Python/Pyodide is not necessary because the browser simulator uses native JavaScript.
 
----
+## Python CLI
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+Python 3.9+; core simulator requires no third-party runtime packages.
 
-- **Stabilizer State Generator**: Custom stabilizer group generation with configurable thresholds
-- **Optimized Tableau Simulator**: Bitwise symplectic representation for >10x speedup over naive implementations
-- **Frontier Domain Engine**: Primary/secondary parameter evaluation with boundary detection
-- **Multi-Agent Workers**: Specialized sub-agents for QC, safety, and protocol conformance
-- **Active Learning Engine**: Bayesian calibration of worker reliability weights
-- **Prometheus Metrics**: Operational telemetry export for monitoring
+~~~bash
+python -m pip install -e .
+stabilizer-tableau-clifford-sim simulate --qubits 2 --gates "H 0; CX 0 1; M 0; M 1" --seed 7
+~~~
 
----
+Also supported: `python cli.py simulate ...`, or `--circuit-file circuit.txt` to read gate operations from a UTF-8 file.
 
-## 💻 CLI Quickstart & Usage
+~~~python
+from stabilizer_tableau.tableau import simulate_circuit
+result = simulate_circuit(2, "H 0; CX 0 1; M 0; M 1", seed=7)
+print(result["measurements"])
+print(result["stabilizers"])
+~~~
 
-### 1. Interactive Audit Mode
-```bash
-python cli.py audit --task-id TASK-001 --target KEY-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
-```
+## Optional REST service
 
-### 2. Batch CSV Processing
-```bash
-python cli.py batch -i sample.csv -o results.csv
-```
-
-### 3. System Chat Query
-```bash
-python cli.py chat "What is the system status?"
-```
-
-### 4. Verify Audit Trail Integrity
-```bash
-python cli.py verify-audit
-```
-
-### 5. Launch REST API Server
-```bash
+~~~bash
+python -m pip install -e ".[server]"
 python cli.py serve --host 127.0.0.1 --port 8000
-```
+~~~
 
-### Parameter Reference
-- `--task-id`: Unique task/case identifier
-- `--target`: Target entity or cryptographic key identifier
-- `--primary`: Primary measurement value (float)
-- `--secondary`: Secondary metric value (float)
-- `--critical`: Flag for emergency escalation (boolean)
-- `--status`: Status descriptor (NOMINAL, DISCORDANT, ANOMALY, etc.)
+The server hosts the same workbench at `/` and accepts `POST /api/simulate` with JSON such as `{"qubits":2,"circuit":"H 0; CX 0 1","seed":7}`. Invalid circuit specifications return HTTP 422. Both existing API implementations expose this endpoint.
 
----
+The older `audit`, `batch`, `chat`, and root-CLI `verify-audit` commands remain available. Their threshold-based evaluations, `enrichment.py` modules, and legacy audit endpoints are **not** Clifford simulation.
 
-## 🛡️ Security & Architecture
+## Privacy and security
 
-* **Zero-PHI Outbound Interceptor:** Regex-based inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs with integrity verification.
-* **Secure Key Management:** Audit signing key sourced from `AUDIT_SECRET_KEY` environment variable or auto-generated via `secrets.token_hex`.
-* **FastAPI REST API:** OpenAPI 3.1 compatible endpoints with Pydantic validation.
-* **Prometheus Telemetry:** Operational metrics exposed at `/metrics`.
+The browser does not upload circuits or results. The local API is unauthenticated; do not publish it to the Internet without independent access controls. Docker Compose binds to `127.0.0.1:8000` by default.
 
----
+Legacy audit logs use an in-memory HMAC chain. A fresh process-local key is generated unless `AUDIT_SECRET_KEY` is supplied through the environment. The formerly committed Compose key must not be reused: it exists in historical commits. Legacy regex identifier screening is **not** HIPAA-compliant de-identification and should not be relied on for sensitive personal information.
 
-## 🧪 Testing & Verification
+## Tests
 
-Run the automated test suite:
+~~~bash
+python -m pip install -e ".[server,test]"
+python -m pytest -q
+node --test tests/test_browser.mjs
+node --check stabilizer_tableau/web/simulator.mjs
+node --check stabilizer_tableau/web/app.mjs
+~~~
 
-```bash
-pytest -v
-```
+The CI workflow checks Python 3.10, 3.11, and 3.12, and Node 22. The browser supports modern browsers with JavaScript ES modules, Clipboard API (where permitted), and Blob downloads.
 
-Execute high-throughput batch simulation benchmarks:
+## License
 
-```bash
-python simulator.py 1000
-```
-
----
-
-## 🐳 Container Deployment
-
-```bash
-docker build -t stabilizer-tableau-clifford-sim .
-docker run -p 8000:8000 stabilizer-tableau-clifford-sim
-```
-
----
-
-## 📁 Project Structure
-
-```
-stabilizer-tableau-clifford-sim/
-├── agents/                      # Multi-agent coordination layer
-│   ├── __init__.py
-│   ├── api.py                   # FastAPI REST endpoints
-│   ├── base.py                  # Security, PHI guard, audit trail
-│   ├── learning.py              # Bayesian calibration engine
-│   ├── llm_factory.py           # LLM provider abstraction
-│   ├── metrics.py               # Prometheus metrics collector
-│   ├── models.py                # Pydantic data models
-│   ├── streamer.py              # WebSocket telemetry broadcaster
-│   ├── supervisor.py            # Master orchestrator
-│   └── workers.py               # Specialized evaluation workers
-├── stabilizer_tableau/          # Core stabilizer tableau engine
-│   ├── __init__.py
-│   ├── agents.py                # Sub-agent implementations
-│   ├── cli.py                   # CLI for stabilizer tableau
-│   ├── engine.py                # Frontier domain engine
-│   ├── models.py                # Data models
-│   └── server.py                # FastAPI server factory
-├── tests/                       # Pytest test suite
-│   ├── test_enrichment.py
-│   ├── test_stabilizer_tableau.py
-│   └── test_stabilizer_tableau_clifford_sim.py
-├── web/                         # Operations console (HTML/JS)
-│   └── index.html
-├── cli.py                       # Main CLI entry point
-├── simulator.py                 # High-throughput simulation
-├── enrichment.py                # Feature enrichment engines
-├── pyproject.toml               # Project configuration
-├── Dockerfile                   # Container build
-├── docker-compose.yml           # Multi-service orchestration
-├── sample.csv                   # Sample batch input
-├── sample_payload.json          # Sample API payload
-└── benchmark_dataset.json       # Golden benchmark test cases
-```
-
----
-
-## 🔧 Configuration
-
-| Environment Variable | Description | Default |
-|:---------------------|:------------|:--------|
-| `AUDIT_SECRET_KEY` | HMAC signing key for audit trail | Auto-generated (random) |
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
