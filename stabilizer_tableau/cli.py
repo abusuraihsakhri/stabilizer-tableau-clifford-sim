@@ -7,6 +7,7 @@ import json
 import sys
 from .models import FrontierPayload
 from .agents import StabilizerCoordinator
+from .tableau import simulate_circuit
 
 coordinator = StabilizerCoordinator()
 
@@ -38,7 +39,29 @@ def main(argv=None):
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
 
+    # Actual Clifford circuit simulation (legacy audit commands remain available).
+    p_sim = subparsers.add_parser("simulate", help="Run a Clifford circuit")
+    p_sim.add_argument("--qubits", type=int, required=True)
+    source = p_sim.add_mutually_exclusive_group(required=True)
+    source.add_argument("--gates", help="Semicolon- or newline-delimited gate sequence")
+    source.add_argument("--circuit-file", help="UTF-8 text file with one gate per line")
+    p_sim.add_argument("--seed", type=int, default=0)
+
     args = parser.parse_args(argv)
+
+    if args.command == "simulate":
+        try:
+            if args.gates is not None:
+                gates = args.gates
+            else:
+                with open(args.circuit_file, encoding="utf-8") as circuit_file:
+                    gates = circuit_file.read(200_001)
+            result = simulate_circuit(args.qubits, gates, args.seed)
+        except (ValueError, OSError) as exc:
+            print(f"Circuit error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "audit":
         payload = FrontierPayload(
@@ -83,7 +106,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=str(r.get("is_critical_flag", "")).strip().lower() in ("1", "true", "yes", "y"),
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)

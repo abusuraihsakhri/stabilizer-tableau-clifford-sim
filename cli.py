@@ -8,6 +8,7 @@ import sys
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import AuditLogger
+from stabilizer_tableau.tableau import simulate_circuit
 
 supervisor = SystemSupervisor(model_provider="mock")
 
@@ -42,7 +43,28 @@ def main(argv=None):
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
 
+    p_sim = subparsers.add_parser("simulate", help="Run a Clifford circuit")
+    p_sim.add_argument("--qubits", type=int, required=True)
+    source = p_sim.add_mutually_exclusive_group(required=True)
+    source.add_argument("--gates", help="Semicolon- or newline-delimited gates")
+    source.add_argument("--circuit-file", help="UTF-8 circuit file")
+    p_sim.add_argument("--seed", type=int, default=0)
+
     args = parser.parse_args(argv)
+
+    if args.command == "simulate":
+        try:
+            if args.gates is not None:
+                gates = args.gates
+            else:
+                with open(args.circuit_file, encoding="utf-8") as infile:
+                    gates = infile.read(200_001)
+            result = simulate_circuit(args.qubits, gates, args.seed)
+        except (ValueError, OSError) as exc:
+            print(f"Circuit error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "audit":
         payload = SystemTaskPayload(
@@ -94,7 +116,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=str(r.get("is_critical_flag", "")).strip().lower() in ("1", "true", "yes", "y"),
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)
