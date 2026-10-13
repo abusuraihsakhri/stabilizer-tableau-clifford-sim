@@ -3,6 +3,10 @@ FastAPI REST API Server for Stabilizer Tableau Clifford Sim.
 """
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from pydantic import Field
+from stabilizer_tableau.tableau import simulate_circuit
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard
 from .models import SystemTaskPayload, ConsensusDossier
@@ -12,13 +16,27 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Stabilizer Tableau Clifford Sim API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
+    description="Clifford circuit simulation and legacy audit endpoint",
     version="3.0.0-ENTERPRISE",
 )
 
 
 class ChatRequest(BaseModel):
     query: str
+
+
+class CircuitRequest(BaseModel):
+    qubits: int = Field(ge=1, le=64)
+    circuit: str = Field(max_length=200_000)
+    seed: int = Field(default=0, ge=-(2**31), le=2**32 - 1)
+
+
+@app.post("/api/simulate")
+def api_simulate(req: CircuitRequest):
+    try:
+        return simulate_circuit(req.qubits, req.circuit, req.seed)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/health")
@@ -53,3 +71,7 @@ def api_chat(req: ChatRequest):
 @app.get("/api/audit/logs")
 def api_audit_logs():
     return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
+
+
+# Register the workbench after the REST routes, preserving their priority.
+app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="workbench")
