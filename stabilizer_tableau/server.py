@@ -68,7 +68,7 @@ def create_app():
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-        app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web"), html=True), name="workbench")
+        app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent / "web"), html=True), name="workbench")
         return app
     except ImportError:
         return None
