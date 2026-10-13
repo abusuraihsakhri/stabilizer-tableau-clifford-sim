@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulateCircuit, parseCircuit, Tableau} from '../web/simulator.mjs';
+import {simulateCircuit, parseCircuit, Tableau} from '../stabilizer_tableau/web/simulator.mjs';
 
 test('initial zero state and X flip', () => {
   assert.deepEqual(simulateCircuit(2,'' ).stabilizers,['+ZI','+IZ']);
